@@ -4,6 +4,10 @@ Small [pi](https://pi.dev) extension that updates the terminal tab title and sho
 
 By default, it uses `openai/gpt-5-nano` for the title and recap.
 
+<p>
+  <img src=".github/screenshot.png" width="1100" alt="Screenshot of pi-recap in action, showing a terminal tab with a concise title and an italic recap in the status bar.">
+</p>
+
 ## Installation
 
 Install as a pi package:
