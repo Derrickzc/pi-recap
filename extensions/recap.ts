@@ -55,8 +55,7 @@ type BranchEntry = {
 type AgentMessageLike = { role?: string; content?: unknown };
 
 const STATE_KEY = "pi-recap";
-const TITLE_MODEL_PROVIDER = "openai";
-const TITLE_MODEL_ID = "gpt-5-nano";
+const DEFAULT_MODEL = "openai/gpt-5-nano";
 const DEFAULT_MAX_RECAP_WORDS = 14;
 
 const DEFAULT_TITLE_PROMPT =
@@ -67,6 +66,7 @@ const DEFAULT_RECAP_PROMPT =
 
 type Settings = {
 	recap?: {
+		model?: string;
 		maxWords?: number;
 		prompts?: {
 			title?: string;
@@ -261,11 +261,12 @@ function getSettings(ctx: TitleContext): Settings {
 	return mergeSettings(globalSettings, projectSettings) as Settings;
 }
 
-function getRecapConfig(ctx: TitleContext): { titlePrompt: string; recapPrompt: string; maxWords: number } {
+function getRecapConfig(ctx: TitleContext): { model: string; titlePrompt: string; recapPrompt: string; maxWords: number } {
 	const recap = getSettings(ctx).recap;
 	const prompts = recap?.prompts;
 	const maxWords = Number.isFinite(recap?.maxWords) && recap!.maxWords! > 0 ? Math.floor(recap!.maxWords!) : DEFAULT_MAX_RECAP_WORDS;
 	return {
+		model: recap?.model?.trim() || DEFAULT_MODEL,
 		titlePrompt: prompts?.title?.trim() || DEFAULT_TITLE_PROMPT,
 		recapPrompt: prompts?.recap?.trim() || DEFAULT_RECAP_PROMPT,
 		maxWords,
@@ -288,8 +289,19 @@ function updateUI(ctx: TitleContext): void {
 	);
 }
 
-function pickModel(ctx: TitleContext): Model<any> | undefined {
-	return ctx.modelRegistry.find(TITLE_MODEL_PROVIDER, TITLE_MODEL_ID);
+function splitModelRef(modelRef: string): { provider: string; modelId: string } | undefined {
+	const separator = modelRef.indexOf("/");
+	if (separator <= 0 || separator === modelRef.length - 1) return undefined;
+	return {
+		provider: modelRef.slice(0, separator).trim(),
+		modelId: modelRef.slice(separator + 1).trim(),
+	};
+}
+
+function pickModel(ctx: TitleContext, modelRef: string): Model<any> | undefined {
+	const parsed = splitModelRef(modelRef);
+	if (!parsed) return undefined;
+	return ctx.modelRegistry.find(parsed.provider, parsed.modelId);
 }
 
 async function completeWithAuth(ctx: TitleContext, model: Model<any>, context: Parameters<typeof complete>[1], options: ProviderStreamOptions) {
@@ -338,14 +350,14 @@ async function generateTitle(pi: ExtensionAPI, ctx: TitleContext, prompt: string
 		const firstPrompt = prompt.trim();
 		currentFirstPrompt = firstPrompt;
 
-		const model = pickModel(ctx);
+		const config = getRecapConfig(ctx);
+		const model = pickModel(ctx, config.model);
 		if (!model) {
-			reportError("title", `${TITLE_MODEL_PROVIDER}/${TITLE_MODEL_ID} is not registered`);
+			reportError("title", `${config.model} is not registered`);
 			return;
 		}
 
 		try {
-			const config = getRecapConfig(ctx);
 			const response = await completeWithAuth(
 				ctx,
 				model,
@@ -400,14 +412,14 @@ async function generateRecap(
 		const recapKey = makeRecapKey(firstPrompt, lastAssistant);
 		if (recapKey === lastRecapSourceKey) return;
 
-		const model = pickModel(ctx);
+		const config = getRecapConfig(ctx);
+		const model = pickModel(ctx, config.model);
 		if (!model) {
-			reportError("recap", `${TITLE_MODEL_PROVIDER}/${TITLE_MODEL_ID} is not registered`);
+			reportError("recap", `${config.model} is not registered`);
 			return;
 		}
 
 		try {
-			const config = getRecapConfig(ctx);
 			const response = await completeWithAuth(
 				ctx,
 				model,

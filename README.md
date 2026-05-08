@@ -2,7 +2,7 @@
 
 Small [pi](https://pi.dev) extension that updates the terminal tab title and shows an italic recap in the status bar after each interaction.
 
-It uses `openai/gpt-5-nano` for the title and recap.
+By default, it uses `openai/gpt-5-nano` for the title and recap.
 
 ## Installation
 
@@ -21,6 +21,7 @@ Configure the prompts and recap truncation in `~/.pi/agent/settings.json` or a p
 ```json
 {
   "recap": {
+    "model": "openai/gpt-5-nano",
     "maxWords": 14,
     "prompts": {
       "title": "You write concise terminal tab titles for coding-agent sessions. Output only a specific 2-6 word title. Do not quote or closely reuse the user's wording.",
@@ -30,6 +31,7 @@ Configure the prompts and recap truncation in `~/.pi/agent/settings.json` or a p
 }
 ```
 
+- `recap.model` selects the model used for title and recap generation, in `provider/model` format.
 - `recap.maxWords` controls local truncation of the recap text.
 - `recap.prompts.title` controls title generation.
 - `recap.prompts.recap` controls recap generation.
