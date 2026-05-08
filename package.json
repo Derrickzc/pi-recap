@@ -1,0 +1,42 @@
+{
+  "name": "pi-recap",
+  "version": "0.1.0",
+  "description": "Pi extension that sets a session title and recap in the terminal UI",
+  "author": "Fernando Bevilacqua",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dovyski/pi-recap.git"
+  },
+  "homepage": "https://github.com/Dovyski/pi-recap#readme",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "recap",
+    "terminal-title"
+  ],
+  "files": [
+    "extensions/**/*.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions/recap.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@mariozechner/pi-ai": {
+      "optional": true
+    },
+    "@mariozechner/pi-coding-agent": {
+      "optional": true
+    }
+  }
+}
