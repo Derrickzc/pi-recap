@@ -1,6 +1,6 @@
 # pi-recap
 
-Small [pi](https://pi.dev) extension that updates the terminal tab title and shows an italic recap in the status bar after each interaction.
+Small [pi](https://pi.dev) extension that updates the terminal tab title and shows an italic recap above the editor after each interaction.
 
 By default, it uses `openai/gpt-5-nano` for the title and recap.
 
@@ -20,12 +20,13 @@ Or copy `extensions/recap.ts` into `~/.pi/agent/extensions/recap.ts` and run `/r
 
 ## Configuration
 
-Configure the prompts and recap truncation in `~/.pi/agent/settings.json` or a project-local `.pi/settings.json`:
+Configure the prompts and recap length in `~/.pi/agent/settings.json` or a project-local `.pi/settings.json`:
 
 ```json
 {
   "recap": {
     "model": "openai/gpt-5-nano",
+    "reasoningEffort": "low",
     "maxWords": 14,
     "prompts": {
       "title": "You write concise terminal tab titles for coding-agent sessions. Output only a specific 2-6 word title. Do not quote or closely reuse the user's wording.",
@@ -36,9 +37,12 @@ Configure the prompts and recap truncation in `~/.pi/agent/settings.json` or a p
 ```
 
 - `recap.model` selects the model used for title and recap generation, in `provider/model` format.
+- `recap.reasoningEffort` sets the helper model's reasoning level (default: `low`).
 - `recap.maxWords` controls local truncation of the recap text.
 - `recap.prompts.title` controls title generation.
 - `recap.prompts.recap` controls recap generation.
+
+The widget displays the complete generated recap and wraps it to the terminal width. It is persisted for session restore but is not added to the model context or chat transcript.
 
 Run `/reload` after changing extension files or settings.
 

@@ -25,7 +25,11 @@ type TitleContext = {
 	ui: {
 		theme: Theme;
 		setTitle(title: string): void;
-		setStatus(key: string, value: string | undefined): void;
+		setWidget(
+			key: string,
+			content: string[] | undefined,
+			options?: { placement?: "aboveEditor" | "belowEditor" },
+		): void;
 	};
 	model?: Model<any>;
 	modelRegistry: {
@@ -56,6 +60,7 @@ type AgentMessageLike = { role?: string; content?: unknown };
 
 const STATE_KEY = "pi-recap";
 const DEFAULT_MODEL = "openai/gpt-5-nano";
+const DEFAULT_REASONING_EFFORT = "low";
 const DEFAULT_MAX_RECAP_WORDS = 14;
 
 const DEFAULT_TITLE_PROMPT =
@@ -67,6 +72,7 @@ const DEFAULT_RECAP_PROMPT =
 type Settings = {
 	recap?: {
 		model?: string;
+		reasoningEffort?: string;
 		maxWords?: number;
 		prompts?: {
 			title?: string;
@@ -261,12 +267,13 @@ function getSettings(ctx: TitleContext): Settings {
 	return mergeSettings(globalSettings, projectSettings) as Settings;
 }
 
-function getRecapConfig(ctx: TitleContext): { model: string; titlePrompt: string; recapPrompt: string; maxWords: number } {
+function getRecapConfig(ctx: TitleContext): { model: string; reasoningEffort: string; titlePrompt: string; recapPrompt: string; maxWords: number } {
 	const recap = getSettings(ctx).recap;
 	const prompts = recap?.prompts;
 	const maxWords = Number.isFinite(recap?.maxWords) && recap!.maxWords! > 0 ? Math.floor(recap!.maxWords!) : DEFAULT_MAX_RECAP_WORDS;
 	return {
 		model: recap?.model?.trim() || DEFAULT_MODEL,
+		reasoningEffort: recap?.reasoningEffort?.trim() || DEFAULT_REASONING_EFFORT,
 		titlePrompt: prompts?.title?.trim() || DEFAULT_TITLE_PROMPT,
 		recapPrompt: prompts?.recap?.trim() || DEFAULT_RECAP_PROMPT,
 		maxWords,
@@ -281,11 +288,12 @@ function updateUI(ctx: TitleContext): void {
 	if (!ctx.hasUI) return;
 
 	ctx.ui.setTitle(currentTitle ?? "pi");
-	ctx.ui.setStatus(
+	ctx.ui.setWidget(
 		STATE_KEY,
 		currentRecap
-			? ctx.ui.theme.fg("dim", "※ ") + ctx.ui.theme.fg("muted", ctx.ui.theme.bold("Recap:")) + ctx.ui.theme.fg("muted", ` ${ctx.ui.theme.italic(currentRecap)}`)
+			? [ctx.ui.theme.fg("dim", "※ ") + ctx.ui.theme.fg("muted", ctx.ui.theme.bold("Recap:")) + ctx.ui.theme.fg("muted", ` ${ctx.ui.theme.italic(currentRecap)}`)]
 			: undefined,
+		{ placement: "aboveEditor" },
 	);
 }
 
@@ -327,6 +335,9 @@ async function completeWithAuth(ctx: TitleContext, model: Model<any>, context: P
 }
 
 function extractAssistantText(response: Awaited<ReturnType<typeof complete>>): string {
+	if (response.stopReason === "error") {
+		throw new Error(response.errorMessage || "Recap model request failed");
+	}
 	return response.content
 		.filter((block): block is { type: "text"; text: string } => block.type === "text" && typeof block.text === "string")
 		.map((block) => block.text)
@@ -373,7 +384,7 @@ async function generateTitle(pi: ExtensionAPI, ctx: TitleContext, prompt: string
 				},
 				{
 					maxTokens: 256,
-					reasoningEffort: "minimal",
+					reasoningEffort: config.reasoningEffort,
 				},
 			);
 
@@ -435,7 +446,7 @@ async function generateRecap(
 				},
 				{
 					maxTokens: 256,
-					reasoningEffort: "minimal",
+					reasoningEffort: config.reasoningEffort,
 				},
 			);
 
@@ -489,6 +500,6 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("session_shutdown", async (_event, ctx) => {
 		if (!ctx.hasUI) return;
-		ctx.ui.setStatus(STATE_KEY, undefined);
+		ctx.ui.setWidget(STATE_KEY, undefined);
 	});
 }
