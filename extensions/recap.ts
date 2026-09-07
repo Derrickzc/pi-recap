@@ -61,13 +61,14 @@ type AgentMessageLike = { role?: string; content?: unknown };
 const STATE_KEY = "pi-recap";
 const DEFAULT_MODEL = "openai/gpt-5-nano";
 const DEFAULT_REASONING_EFFORT = "low";
-const DEFAULT_MAX_RECAP_WORDS = 14;
+// 词元上限：非 CJK 连续字符串按 1 个词元计，CJK 按字计。
+const DEFAULT_MAX_RECAP_WORDS = 20;
 
 const DEFAULT_TITLE_PROMPT =
 	"You write concise terminal tab titles for coding-agent sessions. Output only a specific 2-6 word title. Do not quote or closely reuse the user's wording.";
 
 const DEFAULT_RECAP_PROMPT =
-	"Write a concise terminal status recap for the session. Output only one natural phrase or sentence, at most 14 words. Do not start with phrases like 'The user asks', 'The user requested', or 'This session'. Avoid mentioning participants. Focus on the concrete capability, decision, or result.";
+	"用简体中文为本次编码会话写一条简短的终端状态 recap。只输出一个自然的短语或句子，最多 20 个字，不要任何解释或前缀。不要用「用户要求」「用户希望」「本次会话」这类开头，也不要提到参与者。聚焦具体的能力、决策或结果。";
 
 type Settings = {
 	recap?: {
@@ -144,10 +145,35 @@ function wordCount(text: string): number {
 	return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
+// CJK 表意字符：每个字符计 1 个词元。
+const IDEOGRAPHIC_CHAR = /[\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\uAC00-\uD7AF]/;
+// CJK 标点：不占词元，但中断当前英文单词。
+const CJK_PUNCT_CHAR = /[\u3000-\u303F\uFF00-\uFFEF]/;
+
 function limitWords(text: string, maxWords: number): string {
-	const words = text.trim().split(/\s+/).filter(Boolean);
-	if (words.length <= maxWords) return text.trim();
-	return `${words.slice(0, maxWords).join(" ")}…`;
+	const trimmed = text.trim();
+	if (!trimmed) return trimmed;
+
+	let units = 0;
+	let inWord = false;
+	for (let i = 0; i < trimmed.length; i++) {
+		const char = trimmed[i];
+		if (/\s/.test(char)) {
+			inWord = false;
+			continue;
+		}
+		if (IDEOGRAPHIC_CHAR.test(char)) {
+			inWord = false;
+			units += 1;
+		} else if (CJK_PUNCT_CHAR.test(char)) {
+			inWord = false;
+		} else if (!inWord) {
+			inWord = true;
+			units += 1;
+		}
+		if (units > maxWords) return `${trimmed.slice(0, i).trimEnd()}…`;
+	}
+	return trimmed;
 }
 
 function isGenericTitle(title: string | null | undefined): boolean {
@@ -383,8 +409,9 @@ async function generateTitle(pi: ExtensionAPI, ctx: TitleContext, prompt: string
 					],
 				},
 				{
-					maxTokens: 256,
-					reasoningEffort: config.reasoningEffort,
+					maxTokens: 1024,
+					// "off" 省略 reasoningEffort，让 zai 兼容层显式发送 thinking: disabled
+					reasoningEffort: config.reasoningEffort === "off" ? undefined : config.reasoningEffort,
 				},
 			);
 
@@ -439,14 +466,15 @@ async function generateRecap(
 					messages: [
 						{
 							role: "user",
-							content: `Create the recap from this exchange. Prefer compact status-line wording like "Can create GitHub gists with gh" instead of "The user asks...".\n\nRequest:\n${firstPrompt}\n\nResult:\n${lastAssistant}`,
+							content: `根据下面这次交流生成 recap，必须用简体中文书写。用紧凑的状态行措辞，例如「可以用 gh 创建 GitHub gist」，而不要写成「用户请求……」。\n\nRequest:\n${firstPrompt}\n\nResult:\n${lastAssistant}`,
 							timestamp: Date.now(),
 						},
 					],
 				},
 				{
-					maxTokens: 256,
-					reasoningEffort: config.reasoningEffort,
+					maxTokens: 1024,
+					// "off" 省略 reasoningEffort，让 zai 兼容层显式发送 thinking: disabled
+					reasoningEffort: config.reasoningEffort === "off" ? undefined : config.reasoningEffort,
 				},
 			);
 
