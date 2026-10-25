@@ -466,7 +466,7 @@ async function generateRecap(
 					messages: [
 						{
 							role: "user",
-							content: `根据下面这次交流生成 recap，必须用简体中文书写。用紧凑的状态行措辞，例如「可以用 gh 创建 GitHub gist」，而不要写成「用户请求……」。\n\nRequest:\n${firstPrompt}\n\nResult:\n${lastAssistant}`,
+							content: `Generate a recap for the exchange below. Follow the language, format, and length rules given in the system prompt. Keep it a compact status line (e.g. "can create GitHub gists with gh"), not "the user requested ...".\n\nRequest:\n${firstPrompt}\n\nResult:\n${lastAssistant}`,
 							timestamp: Date.now(),
 						},
 					],
